@@ -3,53 +3,67 @@ import logo from './logo.svg';
 import menu from './menu.svg';
 import search from './search.svg';
 import theme from './theme.svg';
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { JSX } from 'preact';
 import { termsData } from '~/pages/term/termsData';
 import ITerm from '~/models/ITerm';
 import { getCurrentUrl, route } from 'preact-router';
 
 interface HeaderProps {
-  searchTerm: string;
-  setFilteredTerms: (terms: ITerm[]) => void;
-  setSearchTerm: (term: string) => void;
   toggleSideNav: () => void;
   toggleTheme: () => void;
 }
 
-/**
- * The header of the website.
- */
 export default function Header(props: HeaderProps) {
-  const handleOnMenuClick = () => {
-    props.toggleSideNav();
-  };
-
-  const handleOnThemeClick = () => {
-    props.toggleTheme();
-  };
-
   const [localSearchTerm, setLocalSearchTerm] = useState('');
-
-  const previousUrlRef = useRef<string | null>(null);
   const [filteredTerms, setFilteredTerms] = useState<ITerm[]>([]);
   const [selectedTermIndex, setSelectedTermIndex] = useState<number | null>(
     null
   );
+  const [searchTerm, setSearchTerm] = useState('');
+
+  function handleOnMenuClick() {
+    // Your code here
+    props.toggleSideNav(); // This is assuming you want to toggle the side navigation.
+  }
+
+  function handleOnThemeClick() {
+    // Your code here
+    props.toggleTheme(); // This is assuming you want to toggle the theme.
+  }
+
+  function highlightTerm(displayName: string, searchTerm: string) {
+    if (!searchTerm.trim()) {
+      return displayName;
+    }
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    return displayName.split(regex).map((part, index) =>
+      regex.test(part) ? (
+        <mark key={index} className={style.highlighted}>
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
+  }
+
+  useEffect(() => {
+    if (localSearchTerm) {
+      const results = termsData.filter(term =>
+        term.displayName.includes(localSearchTerm)
+      );
+      setFilteredTerms(results);
+    } else {
+      setFilteredTerms([]);
+    }
+  }, [localSearchTerm]);
 
   useEffect(() => {
     const currentUrl = getCurrentUrl();
-    if (previousUrlRef.current !== currentUrl) {
-      console.log(
-        'Route has changed from:',
-        previousUrlRef.current,
-        'to:',
-        currentUrl
-      );
-      setLocalSearchTerm('');
-      previousUrlRef.current = currentUrl;
-    }
-  });
+    console.log('Current URL:', currentUrl);
+    // Add more logic here if you want to perform any action when the URL changes.
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -107,17 +121,17 @@ export default function Header(props: HeaderProps) {
                   setLocalSearchTerm(targetValue);
 
                   if (targetValue.trim() === '') {
-                    props.setFilteredTerms([]);
+                    setFilteredTerms([]);
                     return;
                   }
 
-                  props.setSearchTerm(targetValue);
+                  setSearchTerm(targetValue);
 
                   const results = termsData.filter(term =>
                     term.displayName.includes(targetValue)
                   );
 
-                  props.setFilteredTerms(results);
+                  setFilteredTerms(results);
                 }}
                 placeholder="חיפוש..."
               />
@@ -131,6 +145,27 @@ export default function Header(props: HeaderProps) {
             </li>
           </ul>
         </nav>
+        <div className="wrapper">
+          {filteredTerms.length > 0 && (
+            <div className={style.searchResultsOverlay}>
+              {filteredTerms.map((term, index) => (
+                <div
+                  key={term.urlPath}
+                  className={
+                    index === selectedTermIndex ? `${style.selectedTerm}` : ''
+                  }
+                  onClick={() => {
+                    route(`/${term.urlPath}`);
+                    setSearchTerm('');
+                    setFilteredTerms([]);
+                  }}
+                >
+                  {highlightTerm(term.displayName, searchTerm)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       {filteredTerms.length > 0 && (
         <div className={style.searchResultsOverlay}>
@@ -150,10 +185,9 @@ export default function Header(props: HeaderProps) {
                 setLocalSearchTerm('');
                 setFilteredTerms([]);
               }}
-              dangerouslySetInnerHTML={{
-                __html: highlightTerm(term.displayName, localSearchTerm),
-              }}
-            />
+            >
+              {highlightTerm(term.displayName, localSearchTerm)}
+            </div>
           ))}
         </div>
       )}
