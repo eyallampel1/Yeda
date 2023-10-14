@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { JSX } from 'preact';
 import { termsData } from '~/pages/term/termsData';
 import ITerm from '~/models/ITerm';
-import { getCurrentUrl } from 'preact-router';
+import { getCurrentUrl, route } from 'preact-router';
 
 interface HeaderProps {
   searchTerm: string;
@@ -32,6 +32,10 @@ export default function Header(props: HeaderProps) {
   const [localSearchTerm, setLocalSearchTerm] = useState('');
 
   const previousUrlRef = useRef<string | null>(null);
+  const [filteredTerms, setFilteredTerms] = useState<ITerm[]>([]);
+  const [selectedTermIndex, setSelectedTermIndex] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     const currentUrl = getCurrentUrl();
@@ -46,6 +50,30 @@ export default function Header(props: HeaderProps) {
       previousUrlRef.current = currentUrl;
     }
   });
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        setSelectedTermIndex(prev =>
+          prev === null || prev >= filteredTerms.length - 1 ? 0 : prev + 1
+        );
+      } else if (e.key === 'ArrowUp') {
+        setSelectedTermIndex(prev =>
+          prev === null || prev <= 0 ? filteredTerms.length - 1 : prev - 1
+        );
+      } else if (e.key === 'Enter' && selectedTermIndex !== null) {
+        const term = filteredTerms[selectedTermIndex];
+        route(`/${term.urlPath}`);
+        setLocalSearchTerm('');
+        setFilteredTerms([]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [filteredTerms, selectedTermIndex]);
 
   return (
     <header class={style.header}>
@@ -104,6 +132,31 @@ export default function Header(props: HeaderProps) {
           </ul>
         </nav>
       </div>
+      {filteredTerms.length > 0 && (
+        <div className={style.searchResultsOverlay}>
+          {filteredTerms.map((term, index) => (
+            <div
+              key={term.urlPath}
+              style={
+                index === selectedTermIndex
+                  ? { backgroundColor: 'var(--bg-color-tertiary)' }
+                  : {}
+              }
+              className={
+                index === selectedTermIndex ? `${style.selectedTerm}` : ''
+              }
+              onClick={() => {
+                route(`/${term.urlPath}`);
+                setLocalSearchTerm('');
+                setFilteredTerms([]);
+              }}
+              dangerouslySetInnerHTML={{
+                __html: highlightTerm(term.displayName, localSearchTerm),
+              }}
+            />
+          ))}
+        </div>
+      )}
     </header>
   );
 }
